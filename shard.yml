@@ -1,0 +1,13 @@
+name: obj
+version: 0.1.0
+
+authors:
+  - unn4m3d <smelnikov871@gmail.com>
+
+dependencies:
+  crystaledge:
+    github: unn4m3d/crystaledge
+
+crystal: 0.20.5
+
+license: MIT
