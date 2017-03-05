@@ -24,19 +24,19 @@ module OBJ
   class NamedObject
     property name : String
     property faces = [] of Face
-    property mtl : String
+    property material : String
     property groups = [] of Group
 
-    def initialize(@name, @faces, @mtl, @groups)
+    def initialize(@name, @faces, @material, @groups)
     end
   end
 
   class Group
     property name : String
     property faces = [] of Face
-    property mtl : String
+    property material : String
 
-    def initialize(@name, @faces, @mtl)
+    def initialize(@name, @faces, @material)
     end
   end
 
