@@ -207,7 +207,7 @@ module OBJ
 
     def debug!(io : IO)
       {% for var in @type.instance_vars %}
-        puts "{{var}} = #{@{{var}}}"
+        io.puts "{{var}} = #{@{{var}}}"
       {% end %}
     end
   end
