@@ -7,6 +7,8 @@ authors:
 dependencies:
   crystaledge:
     github: unn4m3d/crystaledge
+  models:
+    github: unn4m3d/models
 
 crystal: 0.20.5
 

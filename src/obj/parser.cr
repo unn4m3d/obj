@@ -1,44 +1,14 @@
 require "crystaledge"
+require "models"
 
 module OBJ
-  class Vertex
-    property coord : CrystalEdge::Vector3
-    property normal : CrystalEdge::Vector3?
-    property texcoord : CrystalEdge::Vector3?
+  alias Vertex = Models::Vertex
 
-    def initialize(
-                   @coord = CrystalEdge::Vector3.zero,
-                   @normal = CrystalEdge::Vector3.zero,
-                   @texcoord = CrystalEdge::Vector3.zero)
-    end
-  end
+  alias Face = Models::Face
 
-  class Face
-    property vertices = [] of Vertex
-    property material : String
+  alias NamedObject = Models::Shape
 
-    def initialize(@vertices, @material)
-    end
-  end
-
-  class NamedObject
-    property name : String
-    property faces = [] of Face
-    property material : String
-    property groups = [] of Group
-
-    def initialize(@name, @faces, @material, @groups)
-    end
-  end
-
-  class Group
-    property name : String
-    property faces = [] of Face
-    property material : String
-
-    def initialize(@name, @faces, @material)
-    end
-  end
+  alias Group = Models::Shape
 
   class ParserBase
     @directives = {} of (Regex|String) => String, String ->
@@ -164,7 +134,7 @@ module OBJ
       end
 
       on :f do |c, str|
-        @faces << Face.new(str.scan(/(?<vert>[\-0-9]+)(\/(?<tex>[\-0-9]+)?(\/(?<norm>[\-0-9]+))?)?/).map do |scan|
+        @faces << str.scan(/(?<vert>[\-0-9]+)(\/(?<tex>[\-0-9]+)?(\/(?<norm>[\-0-9]+))?)?/).map do |scan|
           tc, nc = scan["tex"]?, scan["norm"]?
 
           Vertex.new(
@@ -172,7 +142,7 @@ module OBJ
             (tc ? @tcoords[tr_num tc.to_i]? : nil),
             (nc ? @normals[tr_num nc.to_i]? : nil)
           )
-        end, @current_mtl)
+        end
       end
 
       on :o do |c, str|
@@ -189,7 +159,12 @@ module OBJ
         @ogindex = @groups.size
         @oindex = @faces.size
         @current_obj ||= "$root"
-        @objects[@current_obj.to_s] = NamedObject.new(@current_obj.to_s, faces, @current_mtl, groups)
+        @objects[@current_obj.to_s] = NamedObject.new(
+          @current_obj.to_s,
+          faces,
+          @current_mtl,
+          groups
+        )
         @current_obj = str
       end
 
@@ -200,7 +175,12 @@ module OBJ
                   [] of Face
                 end
         @gindex = @faces.size
-        @groups << Group.new(@current_group || "$rootgroup", faces, @current_mtl)
+        @groups << Group.new(
+          @current_group || "$rootgroup",
+          faces,
+          @current_mtl,
+          [] of Models::Shape
+        )
         @current_group = str
       end
 
