@@ -41,10 +41,17 @@ module OBJ
   end
 
   class ParserBase
-    @directives = {} of String => String ->
+    @directives = {} of Regex => String, String ->
+    @line_num = 0u64
 
-    def on(tag, &proc : String ->)
-      @directives[tag.to_s] = proc
+    def on(tag : String | Symbol, &proc : String, String ->)
+      @directives[/^#{Regex.escape tag.to_s}$/] = ->(cmd : String, line : String){
+        proc.call cmd, line
+      }
+    end
+
+    def on(r : Regex, &proc : String, String ->)
+      @directives[r] = proc
     end
 
     @wcb = ->(s : String) {
@@ -69,31 +76,34 @@ module OBJ
       str
     end
 
+    protected def dir!(name, line)
+      dirs = @directives.select{|k,v| k === name}
+      raise "Invalid directive #{name} at line #{@line_num}" if dirs.empty?
+      begin
+        dirs.each_value &.call name, line
+      rescue e : Exception
+        raise Exception.new("Cannot parse line #{@line_num} : #{e.message}", e)
+      end
+    end
+
     def parse!
-      line_num = 1
+      @line_num = 1
       while line = @io.gets
         line = line.split("#", 2).first
-        unless @directives.keys.any? { |x| line.includes? x }
+        dir = line.split(/\s+/, 2).first
+        unless @directives.keys.any? &.===(dir)
           if line.match(/[a-zA-Z0-9]/)
-            warn "Skipping unknown directive #{line.split(/\s/, 2).first}"
+            warn "Skipping unknown directive #{dir}"
           end
-          line_num += 1
+          @line_num += 1
           next
         end
         name = pull_string! line
         line = line[name.size + 1..-1].gsub(/^\s+/, "")
-        if @directives.has_key? name
-          begin
-            @directives[name].call(line)
-          rescue e : Exception
-            raise Exception.new("Cannot parse line #{line_num}", e)
-          end
-        else
-          raise "Invalid directive #{name} at line #{line_num} "
-        end
-        line_num += 1
+        dir! dir, line
+        @line_num += 1
       end
-      @directives["$eof"].call("$eof")
+      dir! "$eof", "$eof"
     end
   end
 
@@ -113,7 +123,7 @@ module OBJ
     @ogindex : Int32
     @objects = {} of String => NamedObject
 
-    property faces, mtllibs, faces, groups, objects
+    property mtllibs, faces, groups, objects
 
     def vertices
       @vcoords
@@ -129,30 +139,31 @@ module OBJ
       @oindex = 0i32
       @ogindex = 0i32
 
-      on :mtllib do |str|
+      on :mtllib do |c, str|
         @mtllibs << str
       end
 
-      on :usemtl do |str|
+      on :usemtl do |c, str|
         @current_mtl = str
       end
 
-      on :v do |str|
+      on :v do |c, str|
         numbers = str.split(/\s+/, 3).map &.to_f64
         @vcoords << CrystalEdge::Vector3.new(*Tuple(FloatT, FloatT, FloatT).from(numbers))
       end
 
-      on :vt do |str|
+      on :vt do |c, str|
         numbers = str.split(/\s+/, 3).map &.to_f64
+        numbers << 0.0 if numbers.size < 3
         @tcoords << CrystalEdge::Vector3.new(*Tuple(FloatT, FloatT, FloatT).from(numbers))
       end
 
-      on :vn do |str|
+      on :vn do |c, str|
         numbers = str.split(/\s+/, 3).map &.to_f64
         @normals << CrystalEdge::Vector3.new(*Tuple(FloatT, FloatT, FloatT).from(numbers))
       end
 
-      on :f do |str|
+      on :f do |c, str|
         @faces << Face.new(str.scan(/(?<vert>[\-0-9]+)(\/(?<tex>[\-0-9]+)?(\/(?<norm>[\-0-9]+))?)?/).map do |scan|
           tc, nc = scan["tex"]?, scan["norm"]?
 
@@ -164,7 +175,7 @@ module OBJ
         end, @current_mtl)
       end
 
-      on :o do |str|
+      on :o do |c, str|
         groups = if @ogindex < @groups.size
                    @groups.skip(@ogindex)
                  else
@@ -182,7 +193,7 @@ module OBJ
         @current_obj = str
       end
 
-      on :g do |str|
+      on :g do |c, str|
         faces = if @gindex < @faces.size
                   @faces.skip(@gindex)
                 else
@@ -193,9 +204,9 @@ module OBJ
         @current_group = str
       end
 
-      on :"$eof" do |str|
-        @directives["o"].call "$eof"
-        @directives["g"].call "$eof"
+      on :"$eof" do |c, s|
+        dir! "o", s
+        dir! "g", s
       end
     end
 
@@ -209,6 +220,50 @@ module OBJ
       {% for var in @type.instance_vars %}
         io.puts "{{var}} = #{@{{var}}}"
       {% end %}
+    end
+  end
+
+  class Material
+    alias V3 = CrystalEdge::Vector3
+    @colors = {} of String => V3
+    @dissolvance = 0f64
+    @maps = {} of String => String
+    @reflection = {} of String => String
+
+    property colors, dissolvance, maps
+
+    def initialize
+    end
+  end
+
+  class MTLParser < ParserBase
+    @current_mtl = "$default"
+    @mtls = {} of String => Material
+
+    protected def check_mtl!
+      @mtls[@current_mtl] = Material.new unless @mtls.has_key? @current_mtl
+    end
+
+    def initialize(@io)
+      on /^K./ do |cmd, rest|
+        check_mtl!
+        r, g, b = rest.split(/\s+/).map &.to_f64
+        @mtls[@current_mtl].colors[cmd] = Material::V3.new(r, g, b)
+      end
+
+      on /^map_.*/ do |cmd, rest|
+        check_mtl!
+        name = cmd[4..-1]
+        @mtls[@current_mtl].maps[name] = rest
+      end
+
+      on "d" do |_, rest|
+        @dissolvance = rest.chomp.to_f64
+      end
+
+      on "Tr" do |_, rest|
+        @dissolvance = 1.0 - rest.chomp.to_f64
+      end
     end
   end
 end
