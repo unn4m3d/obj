@@ -41,11 +41,11 @@ module OBJ
   end
 
   class ParserBase
-    @directives = {} of Regex => String, String ->
+    @directives = {} of (Regex|String) => String, String ->
     @line_num = 0u64
 
     def on(tag : String | Symbol, &proc : String, String ->)
-      @directives[/^#{Regex.escape tag.to_s}$/] = ->(cmd : String, line : String){
+      @directives[tag.to_s] = ->(cmd : String, line : String){
         proc.call cmd, line
       }
     end
@@ -76,7 +76,11 @@ module OBJ
       str
     end
 
-    protected def dir!(name, line)
+    protected def dir!(name, line) : Void
+      if @directives.has_key? name
+        @directives[name].call name, line
+        return
+      end
       dirs = @directives.select{|k,v| k === name}
       raise "Invalid directive #{name} at line #{@line_num}" if dirs.empty?
       begin
@@ -89,18 +93,14 @@ module OBJ
     def parse!
       @line_num = 1
       while line = @io.gets
-        line = line.split("#", 2).first
-        dir = line.split(/\s+/, 2).first
-        unless @directives.keys.any? &.===(dir)
-          if line.match(/[a-zA-Z0-9]/)
-            warn "Skipping unknown directive #{dir}"
-          end
+        line = line.partition('#').first
+        if line.delete(" \t\r\n").empty?
           @line_num += 1
           next
         end
-        name = pull_string! line
-        line = line[name.size + 1..-1].gsub(/^\s+/, "")
-        dir! dir, line
+        parts = line.partition(/\s+/)
+        dir = parts.first
+        dir! dir, parts.last
         @line_num += 1
       end
       dir! "$eof", "$eof"

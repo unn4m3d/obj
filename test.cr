@@ -1,10 +1,15 @@
 require "./src/obj"
+require "benchmark"
 
-File.open("cornell_box.obj") do |f|
+file =  ARGV.first
+
+File.open(file) do |f|
   parser = OBJ::OBJParser.new f
 
   begin
-    parser.parse!
+    puts Benchmark.measure {
+      parser.parse!
+    }
     puts "#{parser.mtllibs.size} mtllibs"
     puts "#{parser.faces.size} faces"
     puts "#{parser.vertices.size} vertices"
