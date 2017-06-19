@@ -4,7 +4,7 @@ require "benchmark"
 file =  ARGV.first
 
 File.open(file) do |f|
-  parser = OBJ::OBJParser.new f
+  parser = OBJ::OBJParser.new f, ARGV.size > 1
 
   begin
     puts Benchmark.measure {

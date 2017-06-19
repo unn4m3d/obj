@@ -93,6 +93,8 @@ module OBJ
     @ogindex : Int32
     @objects = {} of String => NamedObject
 
+    @triangulate : Bool
+
     property mtllibs, faces, groups, objects
 
     def vertices
@@ -103,7 +105,7 @@ module OBJ
       @vcoords = v
     end
 
-    def initialize(@io)
+    def initialize(@io, @triangulate = false)
       @current_mtl = ""
       @gindex = 0i32
       @oindex = 0i32
@@ -134,7 +136,7 @@ module OBJ
       end
 
       on :f do |c, str|
-        @faces << str.scan(/(?<vert>[\-0-9]+)(\/(?<tex>[\-0-9]+)?(\/(?<norm>[\-0-9]+))?)?/).map do |scan|
+        face = str.scan(/(?<vert>[\-0-9]+)(\/(?<tex>[\-0-9]+)?(\/(?<norm>[\-0-9]+))?)?/).map do |scan|
           tc, nc = scan["tex"]?, scan["norm"]?
 
           Vertex.new(
@@ -142,6 +144,22 @@ module OBJ
             (tc ? @tcoords[tr_num tc.to_i]? : nil),
             (nc ? @normals[tr_num nc.to_i]? : nil)
           )
+        end
+
+        if @triangulate && face.size > 3
+          triangles = face.size - 2
+
+          first = face.first
+
+          triangles.times do |i|
+            @faces << [
+              first,
+              face[1 + i],
+              face[2 + i]
+            ]
+          end
+        else
+          @faces << face
         end
       end
 
