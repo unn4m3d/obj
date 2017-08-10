@@ -7,6 +7,7 @@ File.open(file) do |f|
   parser = OBJ::OBJParser.new f, ARGV.size > 1
 
   begin
+    puts "Parser v #{OBJ::VERSION}"
     puts Benchmark.measure {
       parser.parse!
     }
