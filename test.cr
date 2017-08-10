@@ -11,11 +11,11 @@ File.open(file) do |f|
     puts Benchmark.measure {
       parser.parse!
     }
-    puts "#{parser.mtllibs.size} mtllibs"
-    puts "#{parser.faces.size} faces"
-    puts "#{parser.vertices.size} vertices"
-    puts "#{parser.objects.size} objects"
-    puts "#{parser.groups.size} groups"
+    puts "#{parser.mtllibs.size} mtllib(s)"
+    puts "#{parser.faces.size} face(s)"
+    puts "#{parser.vertices.size} vertice(s)"
+    puts "#{parser.objects.size} object(s)"
+    puts "#{parser.groups.size} group(s)"
   rescue e : Exception
     parser.debug!(STDOUT)
     puts e
