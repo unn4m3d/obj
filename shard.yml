@@ -9,6 +9,8 @@ dependencies:
     github: unn4m3d/crystaledge
   models:
     github: unn4m3d/models
+  version:
+    github: unn4m3d/version
 
 crystal: 0.20.5
 
