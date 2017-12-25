@@ -1,5 +1,5 @@
 name: obj
-version: 0.1.0
+version: 0.2.0
 
 authors:
   - unn4m3d <smelnikov871@gmail.com>
@@ -9,6 +9,7 @@ dependencies:
     github: unn4m3d/crystaledge
   models:
     github: unn4m3d/models
+    branch: dev/materials
   version:
     github: unn4m3d/version
 

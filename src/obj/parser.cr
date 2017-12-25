@@ -92,10 +92,14 @@ module OBJ
     @groups = [] of Group
     @ogindex : Int32
     @objects = {} of String => NamedObject
+    @filename : String
 
     @triangulate : Bool
+    @load_materials : Bool
 
-    property mtllibs, faces, groups, objects
+    @materials = {} of String => Material
+
+    property mtllibs, faces, groups, objects, materials
 
     def vertices
       @vcoords
@@ -105,7 +109,17 @@ module OBJ
       @vcoords = v
     end
 
-    def initialize(@io, @triangulate = false)
+    def current_mtl
+      if @materials.has_key? @current_mtl
+        @materials[@current_mtl]
+      else
+        mat = Material.new @current_mtl
+        @materials[@current_mtl] = mat unless @current_mtl.empty?
+        mat
+      end
+    end
+
+    def initialize(@io, @filename, @triangulate = false, @load_materials = true)
       @current_mtl = ""
       @gindex = 0i32
       @oindex = 0i32
@@ -113,6 +127,19 @@ module OBJ
 
       on :mtllib do |c, str|
         @mtllibs << str
+        if @load_materials
+          path = File.join(File.dirname(@filename), str)
+          if File.exists? path
+            File.open path do |f|
+              parser = MTLParser.new f
+              parser.on_warning do |w|
+                warn w
+              end
+              parser.parse!
+              @materials.merge! parser.mtls
+            end
+          end
+        end
       end
 
       on :usemtl do |c, str|
@@ -180,7 +207,7 @@ module OBJ
         @objects[@current_obj.to_s] = NamedObject.new(
           @current_obj.to_s,
           faces,
-          @current_mtl,
+          current_mtl,
           groups
         )
         @current_obj = str
@@ -196,7 +223,7 @@ module OBJ
         @groups << Group.new(
           @current_group || "$rootgroup",
           faces,
-          @current_mtl,
+          current_mtl,
           [] of Models::Shape
         )
         @current_group = str
@@ -221,32 +248,37 @@ module OBJ
     end
   end
 
-  class Material
-    alias V3 = CrystalEdge::Vector3
-    @colors = {} of String => V3
-    @dissolvance = 0f64
-    @maps = {} of String => String
-    @reflection = {} of String => String
-
-    property colors, dissolvance, maps
-
-    def initialize
-    end
-  end
+  alias Material = Models::Material
 
   class MTLParser < ParserBase
     @current_mtl = "$default"
     @mtls = {} of String => Material
+    @io : IO
+
+
+
+    property mtls
 
     protected def check_mtl!
-      @mtls[@current_mtl] = Material.new unless @mtls.has_key? @current_mtl
+      if @mtls.has_key? @current_mtl
+        @mtls[@current_mtl]
+      else
+        @mtls[@current_mtl] = Material.new(@current_mtl)
+      end
     end
 
     def initialize(@io)
+      on "newmtl" do |cmd, rest|
+        @current_mtl = rest.strip
+        check_mtl!
+      end
+
+      on "$eof" { |c, r| }
+
       on /^K./ do |cmd, rest|
         check_mtl!
         r, g, b = rest.split(/\s+/).map &.to_f64
-        @mtls[@current_mtl].colors[cmd] = Material::V3.new(r, g, b)
+        @mtls[@current_mtl].colors[cmd] = CrystalEdge::Vector3.new(r, g, b)
       end
 
       on /^map_.*/ do |cmd, rest|
@@ -256,11 +288,11 @@ module OBJ
       end
 
       on "d" do |_, rest|
-        @dissolvance = rest.chomp.to_f64
+        @mtls[@current_mtl].dissolvance = rest.chomp.to_f64
       end
 
       on "Tr" do |_, rest|
-        @dissolvance = 1.0 - rest.chomp.to_f64
+        @mtls[@current_mtl].dissolvance = 1.0 - rest.chomp.to_f64
       end
     end
   end
