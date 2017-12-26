@@ -13,6 +13,7 @@ module OBJ
   class ParserBase
     @directives = {} of (Regex|String) => String, String ->
     @line_num = 0u64
+    property custom_file_opener : Proc(String, IO)? = nil
 
     def on(tag : String | Symbol, &proc : String, String ->)
       @directives[tag.to_s] = ->(cmd : String, line : String){
@@ -75,6 +76,23 @@ module OBJ
       end
       dir! "$eof", "$eof"
     end
+
+    def open_file(file)
+      if @custom_file_opener
+        @custom_file_opener.not_nil!.call file
+      else
+        File.open file
+      end
+    end
+
+    def open_file(file, &block : IO->)
+      handler = open_file file
+      begin
+        block.call handler
+      ensure
+        handler.close
+      end
+    end
   end
 
   class OBJParser < ParserBase
@@ -130,8 +148,9 @@ module OBJ
         if @load_materials
           path = File.join(File.dirname(@filename), str)
           if File.exists? path
-            File.open path do |f|
+            open_file path do |f|
               parser = MTLParser.new f
+              parser.custom_file_opener = @custom_file_opener
               parser.on_warning do |w|
                 warn w
               end
