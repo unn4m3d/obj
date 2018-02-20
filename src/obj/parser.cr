@@ -313,6 +313,18 @@ module OBJ
       on "Tr" do |_, rest|
         @mtls[@current_mtl].dissolvance = 1.0 - rest.chomp.to_f64
       end
+
+      on "Ns" do |_, rest|
+        @mtls[@current_mtl].specular_exponent = rest.chomp.to_f64
+      end
+
+      on "sharpness" do |_, rest|
+        @mtls[@current_mtl].sharpness = rest.chomp.to_f64
+      end
+
+      on "Ni" do |_, rest|
+        @mtls[@current_mtl].optical_density = rest.chomp.to_f64
+      end
     end
   end
 end

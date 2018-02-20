@@ -9,7 +9,7 @@ dependencies:
     github: unn4m3d/crystaledge
   models:
     github: unn4m3d/models
-    branch: dev/materials
+    tag: v0.1.2
   version:
     github: unn4m3d/version
 
