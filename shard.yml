@@ -7,6 +7,7 @@ authors:
 dependencies:
   crystaledge:
     github: unn4m3d/crystaledge
+    branch: dev/transform
   models:
     github: unn4m3d/models
     version: ~> 0.1.2
