@@ -10,7 +10,7 @@ dependencies:
     branch: dev/transform
   models:
     github: unn4m3d/models
-    version: ~> 0.1.2
+    branch: dev/transform
   version:
     github: unn4m3d/version
 
